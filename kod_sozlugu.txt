@@ -1,0 +1,34 @@
+======================================================================
+KABLO ÜRETİM TESİSİ - KOD SÖZLÜĞÜ
+======================================================================
+
+TESİS KODLARI:
+────────────────────────────────────────
+KABLO-IST: İstanbul Kablo Üretim Tesisi (Marmara, 3 Vardiya)
+KABLO-ANK: Ankara Kablo Üretim Tesisi (İç Anadolu, 2 Vardiya)
+
+ÜRETİM HATLARI:
+────────────────────────────────────────
+XTR-1001: Mikro Extruder Hattı Alfa (Tip: Mikro, Max: 120 m/dk, Endüstri 4.0)
+XTR-1002: Standart Extruder Hattı Beta (Tip: Standart, Max: 80 m/dk, Endüstri 3.0)
+XTR-1003: Ağır Hizmet Extruder Hattı Gamma (Tip: Ağır Hizmet, Max: 40 m/dk, Endüstri 3.0)
+XTR-1004: Yüksek Hızlı Extruder Hattı Delta (Tip: Mikro, Max: 130 m/dk, Endüstri 4.0)
+XTR-2001: Özel Üretim Extruder Hattı Epsilon (Tip: Özel Üretim, Max: 50 m/dk, Endüstri 4.0)
+XTR-2002: Standart Extruder Hattı Zeta (Tip: Standart, Max: 90 m/dk, Endüstri 3.0)
+XTR-2003: Ağır Hizmet Extruder Hattı Eta (Tip: Ağır Hizmet, Max: 45 m/dk, Endüstri 3.0)
+XTR-2004: Kombine Extruder Hattı Theta (Tip: Kombine, Max: 110 m/dk, Endüstri 4.0)
+XTR-2005: Süper Ağır Hizmet Extruder Hattı Iota (Tip: Süper Ağır, Max: 30 m/dk, Endüstri 3.0)
+
+MALZEME KODLARI:
+────────────────────────────────────────
+CU-ETP: Elektrolitik Bakır (Fire: %1.0-%5.0, Maliyet: 125.5 TL)
+AL-1350: Alüminyum Alaşım (Fire: %3.0-%9.0, Maliyet: 78.3 TL)
+FO-SM-9: Fiber Optik Single Mode (Fire: %0.5-%2.0, Maliyet: 340.0 TL)
+
+OPERASYON KODLARI:
+────────────────────────────────────────
+OP-310: İLETKEN TEL ÇEKİM (Süre: 15 dk, Ekipman: Tel Çekme Makinesi)
+OP-320: İZOLASYON EKSTRÜZYON (Süre: 25 dk, Ekipman: Extruder)
+OP-330: DOLGU KAPLAMA (Süre: 20 dk, Ekipman: Dolgu Extruder)
+OP-340: DIŞ KILIF SIVAMA (Süre: 30 dk, Ekipman: Kılıf Extruder)
+OP-350: ÇELİK ZIRH SARMAL (Süre: 40 dk, Ekipman: Zırh Sarma Makinesi)

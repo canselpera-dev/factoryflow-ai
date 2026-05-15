@@ -1,0 +1,32 @@
+======================================================================
+KABLO ÜRETİM TESİSİ - VERİ SETİ DOKÜMANTASYONU v3.0
+DRAMATİK SENARYO EDİSYONU
+======================================================================
+
+Oluşturulma Tarihi: 07.05.2026 23:57
+Sürüm: 3.0 - Bakım + Arıza + Zorluk Derecesi
+
+TOPLAM İSTATİSTİKLER:
+────────────────────────────────────────
+Toplam İş Emri: 9,554
+Tarih Aralığı: 01.01.2026 - 31.12.2025
+Çalışma Günü: 312
+Tesis Sayısı: 2
+Hat Sayısı: 9
+Operatör: 10
+Ürün Çeşidi: 17
+Sütun Sayısı: 46
+
+ÜRETİM RAKAMLARI:
+────────────────────────────────────────
+Toplam Bobin: 302,487
+Toplam Fire: 19,752
+Fire Oranı: %6.13
+Toplam Metraj: 57,617,555 m
+Ortalama OEE: %26.33
+
+DRAMATİK EKLEMELER:
+────────────────────────────────────────
+Bakım Duruşu (Toplam): 8862.4 saat
+Arıza Duruşu (Toplam): 2690.9 saat
+Ortalama Zorluk: 3.93

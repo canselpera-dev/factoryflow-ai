@@ -1,0 +1,31 @@
+======================================================================
+KABLO ÜRETİM TESİSİ - VERİ SETİ DOKÜMANTASYONU
+======================================================================
+
+Oluşturulma Tarihi: 07.05.2026 23:33
+Veri Seti Versiyonu: 2.0 - Sentetik Üretim
+
+TOPLAM İSTATİSTİKLER:
+────────────────────────────────────────
+Toplam İş Emri Sayısı: 9,554
+Tarih Aralığı: 01.01.2026 - 31.12.2025
+Toplam Çalışma Günü: 312
+Aktif Tesis Sayısı: 2
+Üretim Hattı Sayısı: 9
+Operatör Sayısı: 10
+Ürün Çeşidi: 17
+Malzeme Çeşidi: 3
+
+ÜRETİM RAKAMLARI:
+────────────────────────────────────────
+Toplam Kaliteli Bobin: 304,955
+Toplam Fire Bobin: 17,284
+Ortalama Fire Oranı: %5.36
+Toplam Metraj: 58,137,976 metre
+Ortalama OEE: %20.75
+Ortalama Setup Süresi: 0.699 saat
+
+TESİS DAĞILIMI:
+────────────────────────────────────────
+KABLO-IST: 4,767 iş emri, 4 hat
+KABLO-ANK: 4,787 iş emri, 5 hat

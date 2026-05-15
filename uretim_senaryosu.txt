@@ -1,0 +1,85 @@
+======================================================================
+KABLO ÜRETİM TESİSİ - DRAMATİK SENARYO
+======================================================================
+
+BAKIM PERİYOTLARI:
+────────────────────────────────────────
+📅 Pazartesi Sabah (06:00-08:00): 2-3 saat planlı bakım
+📅 Cumartesi Gece (22:00-00:00): 2.5-4 saat planlı bakım
+Etki: Bakım Duruşu (Saat) sütununa yansır
+
+RASTGELE ARIZALAR:
+────────────────────────────────────────
+🔧 XTR-1001 - Mikro Extruder Hattı Alfa:
+   Arıza İhtimali: %8
+   Arıza Süresi: 1-3 saat (rastgele)
+   Risk Seviyesi: Düşük
+   Teknoloji: Endüstri 4.0
+
+🔧 XTR-1002 - Standart Extruder Hattı Beta:
+   Arıza İhtimali: %15
+   Arıza Süresi: 1-3 saat (rastgele)
+   Risk Seviyesi: Orta
+   Teknoloji: Endüstri 3.0
+
+🔧 XTR-1003 - Ağır Hizmet Extruder Hattı Gamma:
+   Arıza İhtimali: %22
+   Arıza Süresi: 1-3 saat (rastgele)
+   Risk Seviyesi: Yüksek
+   Teknoloji: Endüstri 3.0
+
+🔧 XTR-1004 - Yüksek Hızlı Extruder Hattı Delta:
+   Arıza İhtimali: %5
+   Arıza Süresi: 1-3 saat (rastgele)
+   Risk Seviyesi: Düşük
+   Teknoloji: Endüstri 4.0
+
+🔧 XTR-2001 - Özel Üretim Extruder Hattı Epsilon:
+   Arıza İhtimali: %10
+   Arıza Süresi: 1-3 saat (rastgele)
+   Risk Seviyesi: Orta
+   Teknoloji: Endüstri 4.0
+
+🔧 XTR-2002 - Standart Extruder Hattı Zeta:
+   Arıza İhtimali: %18
+   Arıza Süresi: 1-3 saat (rastgele)
+   Risk Seviyesi: Orta
+   Teknoloji: Endüstri 3.0
+
+🔧 XTR-2003 - Ağır Hizmet Extruder Hattı Eta:
+   Arıza İhtimali: %20
+   Arıza Süresi: 1-3 saat (rastgele)
+   Risk Seviyesi: Yüksek
+   Teknoloji: Endüstri 3.0
+
+🔧 XTR-2004 - Kombine Extruder Hattı Theta:
+   Arıza İhtimali: %7
+   Arıza Süresi: 1-3 saat (rastgele)
+   Risk Seviyesi: Düşük
+   Teknoloji: Endüstri 4.0
+
+🔧 XTR-2005 - Süper Ağır Hizmet Extruder Hattı Iota:
+   Arıza İhtimali: %25
+   Arıza Süresi: 1-3 saat (rastgele)
+   Risk Seviyesi: Çok Yüksek
+   Teknoloji: Endüstri 3.0
+
+ÜRÜN ZORLUK DERECELERİ:
+────────────────────────────────────────
+⭐ 1-2: Kolay (Standart PVC kablolar)
+⭐ 3-4: Orta (XLPE başlangıç, Halogen-Free)
+⭐ 5-6: Zor (Kalın kesitler, özel malzemeler)
+⭐ 7-8: Çok Zor (Süper ağır, fiber optik)
+⭐ 9: Uzman (Fiber optik multi-mode)
+
+ZORLUK ETKİLERİ:
+────────────────────────────────────────
+• Fire oranını artırır (+0.002 her zorluk puanı)
+• Setup süresini uzatır (+0.05 saat her zorluk puanı)
+• Operasyon hızını düşürür (-2.5 m/dk her zorluk puanı)
+• Kalite oranını düşürür (-0.5% her zorluk puanı)
+
+TOPLAM SENARYO İSTATİSTİKLERİ:
+────────────────────────────────────────
+Bakım yapılan iş emri: 3088 (Toplam: 8862.4 saat)
+Arıza yaşanan iş emri: 1344 (Toplam: 2690.9 saat)
