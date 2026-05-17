@@ -293,7 +293,7 @@ with col_right:
     top_feature_names = top_features['Feature'].astype(str).tolist()
 
     ax2.barh(range(len(top_importance)), top_importance, color=colors, edgecolor='black')
-    ax2.set_yticks(range(10))
+    ax2.set_yticks(range(len(top_importance)))
     ax2.set_yticklabels(top_feature_names)
     ax2.set_xlabel('Önem Skoru')
     ax2.set_title('Model Feature Importance (Top 10)')
