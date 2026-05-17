@@ -20,7 +20,6 @@ def find_project_file(file_name):
         candidate = folder / file_name
         if candidate.exists():
             return candidate
-
     searched = "\n".join(f"- {folder / file_name}" for folder in SEARCH_DIRS)
     raise FileNotFoundError(f"{file_name} bulunamadı. Aranan yollar:\n{searched}")
 
@@ -47,7 +46,6 @@ def load_model():
 
 @st.cache_data
 def load_historical_data():
-    """V4 üretim verisini yükle"""
     try:
         data_path = find_project_file("kablo_uretim_veriseti_v4.csv")
         df = pd.read_csv(data_path, sep=';')
@@ -56,9 +54,20 @@ def load_historical_data():
     except FileNotFoundError:
         return None
 
+@st.cache_data
+def load_plan_data():
+    try:
+        plan_path = find_project_file("is_emri_plani.csv")
+        plan = pd.read_csv(plan_path, sep=';', encoding='cp1254')
+        plan['Tarih_DT'] = pd.to_datetime(plan['Plan_Tarihi'], format='%d.%m.%Y')
+        return plan
+    except FileNotFoundError:
+        return None
+
 try:
     model, feature_cols = load_model()
     ham_veri = load_historical_data()
+    plan_veri = load_plan_data()
 except Exception as exc:
     st.error(f"Yükleme hatası: {exc}")
     st.stop()
@@ -110,10 +119,49 @@ def prepare_history_data(data):
     return data.tail(30).reset_index(drop=True)
 
 # ============================================================
-# YARDIMCI FONKSİYONLAR (Hat & Operatör Analizi)
+# AKILLI TAHMİN (PLAN ENTEGRASYONU)
+# ============================================================
+def akilli_tahmin(model_tahmini, plan_bobin):
+    """Model tahminini plan bilgisiyle birleştir"""
+    if plan_bobin is None or plan_bobin == 0:
+        return int(model_tahmini), "🤖 Sadece model", "normal"
+    
+    alt_sinir = plan_bobin * 0.75
+    ust_sinir = plan_bobin * 1.25
+    duzeltilmis = max(alt_sinir, min(model_tahmini, ust_sinir))
+    
+    if duzeltilmis == model_tahmini:
+        return int(duzeltilmis), "✅ Plan bandında", "normal"
+    elif duzeltilmis > model_tahmini:
+        return int(duzeltilmis), f"⬆️ Plana çekildi (+{int(duzeltilmis-model_tahmini)})", "off"
+    else:
+        return int(duzeltilmis), f"⬇️ Plana çekildi ({int(duzeltilmis-model_tahmini)})", "inverse"
+
+def get_gun_plan_detay(tarih):
+    """Seçili tarih için plan detayı"""
+    if plan_veri is None:
+        return {'var': False}
+    
+    gun_plan = plan_veri[plan_veri['Tarih_DT'] == tarih]
+    if len(gun_plan) == 0:
+        return {'var': False}
+    
+    return {
+        'var': True,
+        'is_emri': len(gun_plan),
+        'bobin': gun_plan['Planlanan_Bobin'].sum(),
+        'metraj': gun_plan['Planlanan_Metraj'].sum(),
+        'zorluk': gun_plan['Zorluk_Derecesi'].mean(),
+        'hat': gun_plan['Hat_Kodu'].nunique(),
+        'operator': gun_plan['Operator_Kodu'].nunique(),
+        'bakim': gun_plan['Bakim_Gunu'].iloc[0],
+        'urunler': gun_plan[['Urun_Kodu', 'Urun_Adi', 'Planlanan_Bobin', 'Zorluk_Derecesi', 'Operator_Kodu']].copy()
+    }
+
+# ============================================================
+# HAT & OPERATÖR ANALİZİ
 # ============================================================
 def get_hat_operatör_analizi(ham_veri, secili_tarih=None):
-    """Hat ve operatör bazlı üretim analizi"""
     if ham_veri is None:
         return None, None, None
     
@@ -122,7 +170,6 @@ def get_hat_operatör_analizi(ham_veri, secili_tarih=None):
     else:
         df_filtre = ham_veri
     
-    # Hat bazlı
     hat_ozet = df_filtre.groupby('Hat Kodu').agg(
         Hat_Adi=('Hat Tanımı', 'first'),
         Toplam_Bobin=('Kaliteli Bobin Adedi', 'sum'),
@@ -132,7 +179,6 @@ def get_hat_operatör_analizi(ham_veri, secili_tarih=None):
         Is_Emri_Sayisi=('İş Emri No', 'count')
     ).round(1)
     
-    # Operatör bazlı
     op_ozet = df_filtre.groupby('Operatör Adı Soyadı').agg(
         Toplam_Bobin=('Kaliteli Bobin Adedi', 'sum'),
         Ortalama_OEE=('OEE Değeri (%)', 'mean'),
@@ -141,7 +187,6 @@ def get_hat_operatör_analizi(ham_veri, secili_tarih=None):
     ).round(1)
     op_ozet['Fire_Orani'] = (op_ozet['Fire_Adet'] / (op_ozet['Toplam_Bobin'] + op_ozet['Fire_Adet']) * 100).round(1)
     
-    # Tesis özeti
     tesis_ozet = df_filtre.groupby('Tesis Adı').agg(
         Toplam_Bobin=('Kaliteli Bobin Adedi', 'sum'),
         Ortalama_OEE=('OEE Değeri (%)', 'mean'),
@@ -170,7 +215,6 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # Demo veri toggle
     use_demo = st.checkbox("Demo verisi kullan", value=True)
     
     st.subheader("📂 Geçmiş Üretim Verisi")
@@ -198,14 +242,19 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # Quick stats
+    # Plan durumu
+    if plan_veri is not None:
+        st.success("📋 Plan verisi yüklendi")
+    else:
+        st.warning("📋 Plan verisi bulunamadı")
+    
     st.subheader("📊 Son 7 Gün")
     son_7 = gecmis_df['Toplam_Bobin'].tail(7)
     st.metric("Ortalama Üretim", f"{son_7.mean():.0f} bobin")
-    st.metric("Min", f"{son_7.min():.0f} | Max: {son_7.max():.0f}")
+    st.metric("Min / Max", f"{son_7.min():.0f} / {son_7.max():.0f}")
     
     st.markdown("---")
-    st.caption("v2.0 | XGBoost | FactoryFlow-AI")
+    st.caption("v3.0 | XGBoost + Plan | FactoryFlow-AI")
 
 # ============================================================
 # ANA SAYFA
@@ -213,14 +262,20 @@ with st.sidebar:
 st.title("🏭 Kablo Üretim Tesisi - AI Destekli Üretim Tahmini")
 st.markdown("---")
 
-# ============================================================
-# ÜST METRİKLER
-# ============================================================
 tahmin_tarihi_dt = pd.to_datetime(tahmin_tarihi)
-X_pred = create_prediction_features(tahmin_tarihi_dt, gecmis_df)
-tahmin_bobin = int(model.predict(X_pred)[0])
 
-# Tarihe göre gerçek veri varsa onu göster
+# Model ham tahmin
+X_pred = create_prediction_features(tahmin_tarihi_dt, gecmis_df)
+ham_tahmin = model.predict(X_pred)[0]
+
+# Plan detayı
+plan_detay = get_gun_plan_detay(tahmin_tarihi_dt)
+
+# Akıllı tahmin
+plan_bobin = plan_detay.get('bobin', None)
+final_tahmin, duzeltme_msj, delta_color = akilli_tahmin(ham_tahmin, plan_bobin)
+
+# Gerçek veri
 if ham_veri is not None:
     o_tarih_veri = ham_veri[ham_veri['Tarih_DT'] == tahmin_tarihi_dt]
     if len(o_tarih_veri) > 0:
@@ -232,116 +287,105 @@ if ham_veri is not None:
 else:
     gercek_bobin = None
 
-col1, col2, col3, col4 = st.columns(4)
+# ============================================================
+# ÜST METRİKLER (5'li)
+# ============================================================
+col1, col2, col3, col4, col5 = st.columns(5)
 
 with col1:
-    delta_val = f"{tahmin_bobin - 969:,}" if gercek_bobin is None else f"Gerçek: {gercek_bobin:,}"
-    st.metric("📦 Tahmini Bobin", f"{tahmin_bobin:,}", delta=delta_val)
+    st.metric("🤖 Ham Tahmin", f"{int(ham_tahmin):,} bobin")
 
 with col2:
-    tahmin_oee = np.random.uniform(60, 85) if gercek_bobin is None else gercek_oee
-    st.metric("⚡ OEE", f"%{tahmin_oee:.1f}", delta=f"{tahmin_oee - 70:.1f}%")
+    delta_str = f"Plan: {plan_detay['bobin']:,}" if plan_detay['var'] else "Plan yok"
+    st.metric("🎯 Final Tahmin", f"{final_tahmin:,} bobin", delta=delta_str)
 
 with col3:
-    tahmin_fire = int(tahmin_bobin * np.random.uniform(0.04, 0.08)) if gercek_bobin is None else gercek_fire
-    st.metric("🔥 Fire", f"{tahmin_fire:,} bobin", delta=f"%{tahmin_fire/tahmin_bobin*100:.1f}")
+    if plan_detay['var']:
+        st.metric("📋 Plan Bobin", f"{plan_detay['bobin']:,} bobin",
+                 delta=f"{plan_detay['is_emri']} iş emri")
+    else:
+        st.metric("📋 Plan", "Yok")
 
 with col4:
-    gun_adi_tr = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz']
-    bakim_var = "🔧 Bakım" if tahmin_tarihi_dt.dayofweek in [0, 5] else "✅ Normal"
-    st.metric("📅 " + gun_adi_tr[tahmin_tarihi_dt.dayofweek], bakim_var)
+    st.metric(duzeltme_msj.split()[0], duzeltme_msj.split(' ', 1)[1] if ' ' in duzeltme_msj else duzeltme_msj,
+             delta_color=delta_color)
+
+with col5:
+    gun_adi_tr = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'][tahmin_tarihi_dt.dayofweek]
+    bakim_var = "🔧 Bakım" if plan_detay.get('bakim', False) or tahmin_tarihi_dt.dayofweek in [0, 5] else "✅ Normal"
+    st.metric(f"📅 {gun_adi_tr}", bakim_var)
 
 st.markdown("---")
 
 # ============================================================
-# HAT & OPERATÖR ANALİZİ
+# PLAN & ÜRETİM DETAYI
 # ============================================================
-st.subheader("🔧 Hat Bazlı Üretim & Operatör Performansı")
-
-if ham_veri is not None:
-    hat_ozet, op_ozet, tesis_ozet = get_hat_operatör_analizi(ham_veri, tahmin_tarihi_dt)
+if plan_detay['var'] or gercek_bobin is not None:
+    st.subheader("📋 Seçili Tarih Detayı")
     
-    tab1, tab2, tab3 = st.tabs(["🏭 Hat Bazlı", "👷 Operatör", "🏢 Tesis"])
+    tab1, tab2, tab3 = st.tabs(["📋 Plan Detayı", "🏭 Hat & Operatör", "📊 Karşılaştırma"])
     
     with tab1:
-        if hat_ozet is not None and len(hat_ozet) > 0:
-            col_h1, col_h2 = st.columns([3, 2])
-            with col_h1:
-                st.dataframe(hat_ozet, use_container_width=True)
-            with col_h2:
-                # Hat üretim bar chart
-                fig_h, ax_h = plt.subplots(figsize=(6, 5))
-                hat_ozet_sorted = hat_ozet.sort_values('Toplam_Bobin', ascending=True)
-                hat_bobin = hat_ozet_sorted['Toplam_Bobin'].to_numpy(dtype=float)
-                hat_labels = [str(label) for label in hat_ozet_sorted.index]
-                bars = ax_h.barh(range(len(hat_bobin)), hat_bobin,
-                                color='steelblue', edgecolor='black')
-                ax_h.set_yticks(range(len(hat_bobin)))
-                ax_h.set_yticklabels(hat_labels, fontsize=8)
-                ax_h.set_xlabel('Bobin Adedi')
-                ax_h.set_title('Hat Bazlı Üretim')
-                # En yüksek üretimi vurgula
-                if len(hat_ozet_sorted) > 0:
-                    bars[-1].set_color('#2ecc71')
-                st.pyplot(fig_h)
+        if plan_detay['var']:
+            col_p1, col_p2 = st.columns([2, 1])
+            with col_p1:
+                st.markdown(f"""
+                | Bilgi | Değer |
+                |-------|-------|
+                | **Toplam İş Emri** | {plan_detay['is_emri']} adet |
+                | **Planlanan Bobin** | {plan_detay['bobin']:,} |
+                | **Planlanan Metraj** | {plan_detay['metraj']:,} m |
+                | **Ortalama Zorluk** | {plan_detay['zorluk']:.1f} |
+                | **Aktif Hat** | {plan_detay['hat']} |
+                | **Aktif Operatör** | {plan_detay['operator']} |
+                | **Bakım Günü** | {'🔧 Evet' if plan_detay['bakim'] else '✅ Hayır'} |
+                """)
+            with col_p2:
+                st.markdown("**📦 Planlanan Ürünler:**")
+                plan_urunler = plan_detay.get('urunler')
+                if isinstance(plan_urunler, pd.DataFrame):
+                    st.dataframe(
+                        plan_urunler[['Urun_Kodu', 'Planlanan_Bobin', 'Zorluk_Derecesi']],
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+                else:
+                    st.info("Planlanan ürün detayı bulunamadı.")
         else:
-            st.info("Seçili tarih için hat verisi bulunamadı. Geçmiş veriden ortalama gösteriliyor.")
-            hat_ozet_ort, _, _ = get_hat_operatör_analizi(ham_veri)
-            if hat_ozet_ort is not None:
-                st.dataframe(hat_ozet_ort, use_container_width=True)
+            st.info("Bu tarih için plan bulunamadı.")
     
     with tab2:
-        if op_ozet is not None and len(op_ozet) > 0:
-            col_o1, col_o2 = st.columns([3, 2])
-            with col_o1:
+        if ham_veri is not None:
+            hat_ozet, op_ozet, tesis_ozet = get_hat_operatör_analizi(ham_veri, tahmin_tarihi_dt)
+            
+            if hat_ozet is not None and len(hat_ozet) > 0:
+                st.dataframe(hat_ozet, use_container_width=True)
+            if op_ozet is not None and len(op_ozet) > 0:
                 st.dataframe(op_ozet, use_container_width=True)
-            with col_o2:
-                # Operatör performans scatter
-                fig_o, ax_o = plt.subplots(figsize=(6, 5))
-                op_bobin = op_ozet['Toplam_Bobin'].to_numpy(dtype=float)
-                op_oee = op_ozet['Ortalama_OEE'].to_numpy(dtype=float)
-                op_size = op_ozet['Is_Emri_Sayisi'].to_numpy(dtype=float) * 20
-                op_fire = op_ozet['Fire_Orani'].to_numpy(dtype=float)
-                scatter = ax_o.scatter(op_bobin, op_oee,
-                                      s=op_size, c=op_fire,
-                                      cmap='RdYlGn_r', alpha=0.7, edgecolor='black')
-                for idx, row in op_ozet.iterrows():
-                    operator_name = str(idx)
-                    ax_o.annotate(operator_name.split()[-1][:4], (row['Toplam_Bobin'], row['Ortalama_OEE']),
-                                 fontsize=7, ha='center')
-                ax_o.set_xlabel('Toplam Bobin')
-                ax_o.set_ylabel('OEE (%)')
-                ax_o.set_title('Operatör Performansı (Balon: İş Emri, Renk: Fire)')
-                plt.colorbar(scatter, ax=ax_o, label='Fire Oranı (%)')
-                st.pyplot(fig_o)
         else:
-            st.info("Seçili tarih için operatör verisi bulunamadı.")
+            st.info("Üretim verisi bulunamadı.")
     
     with tab3:
-        if tesis_ozet is not None and len(tesis_ozet) > 0:
-            col_t1, col_t2 = st.columns(2)
-            with col_t1:
-                st.dataframe(tesis_ozet, use_container_width=True)
-            with col_t2:
-                # Tesis arıza/bakım karşılaştırma
-                fig_t, ax_t = plt.subplots(figsize=(6, 5))
-                x_t = np.arange(len(tesis_ozet))
-                w_t = 0.35
-                tesis_ariza = tesis_ozet['Toplam_Arıza'].to_numpy(dtype=float)
-                tesis_bakim = tesis_ozet['Toplam_Bakım'].to_numpy(dtype=float)
-                tesis_labels = [str(label) for label in tesis_ozet.index]
-                ax_t.bar(x_t - w_t/2, tesis_ariza, w_t, label='Arıza', color='#e74c3c')
-                ax_t.bar(x_t + w_t/2, tesis_bakim, w_t, label='Bakım', color='#f39c12')
-                ax_t.set_xticks(x_t)
-                ax_t.set_xticklabels(tesis_labels, fontsize=8)
-                ax_t.set_ylabel('Saat')
-                ax_t.set_title('Tesis Arıza & Bakım Süreleri')
-                ax_t.legend()
-                st.pyplot(fig_t)
+        karsilastirma = []
+        if plan_detay['var']:
+            karsilastirma.append(('Planlanan', plan_detay['bobin'], '#f39c12'))
+        if gercek_bobin is not None:
+            karsilastirma.append(('Gerçekleşen', gercek_bobin, '#2ecc71'))
+        karsilastirma.append(('Tahmin', final_tahmin, '#3498db'))
+        
+        if len(karsilastirma) >= 2:
+            fig_k, ax_k = plt.subplots(figsize=(8, 5))
+            kategoriler = [k[0] for k in karsilastirma]
+            degerler = [k[1] for k in karsilastirma]
+            renkler = [k[2] for k in karsilastirma]
+            ax_k.bar(kategoriler, degerler, color=renkler, edgecolor='black')
+            for i, v in enumerate(degerler):
+                ax_k.text(i, v + 10, f'{v:,}', ha='center', fontweight='bold')
+            ax_k.set_title('Plan vs Gerçek vs Tahmin', fontweight='bold')
+            ax_k.set_ylabel('Bobin Adedi')
+            st.pyplot(fig_k)
         else:
-            st.info("Tesis verisi bulunamadı.")
-else:
-    st.warning("⚠️  V4 üretim verisi bulunamadı. Hat/operatör analizi için kablo_uretim_veriseti_v4.csv gerekiyor.")
+            st.info("Karşılaştırma için yeterli veri yok.")
 
 st.markdown("---")
 
@@ -351,7 +395,7 @@ st.markdown("---")
 col_left, col_right = st.columns([3, 2])
 
 with col_left:
-    st.subheader("📈 7 Günlük Tahmin")
+    st.subheader("📈 7 Günlük Tahmin (Plan Entegre)")
     
     gelecek_tahminler = []
     gecmis_kopya = gecmis_df.copy()
@@ -374,10 +418,20 @@ with col_left:
                 'Gecen_Hafta': [son_degerler[-7]] if len(son_degerler) >= 7 else [969],
                 'Haftalik_Ort': [np.mean(son_degerler[-7:])]
             })
-            pred = model.predict(X_future[feature_cols])[0]
-            gelecek_tahminler.append(int(pred))
-            yeni_satir = pd.DataFrame({'Tarih_DT': [gun], 'Toplam_Bobin': [int(pred)]})
-            gecmis_kopya = pd.concat([gecmis_kopya, yeni_satir], ignore_index=True)
+            ham = model.predict(X_future[feature_cols])[0]
+            
+            # O günün planı varsa düzelt
+            gun_plan_bobin = None
+            if plan_veri is not None:
+                gp = plan_veri[plan_veri['Tarih_DT'] == gun]
+                if len(gp) > 0:
+                    gun_plan_bobin = gp['Planlanan_Bobin'].sum()
+            
+            final, _, _ = akilli_tahmin(ham, gun_plan_bobin)
+            gelecek_tahminler.append(final)
+            
+            yeni = pd.DataFrame({'Tarih_DT': [gun], 'Toplam_Bobin': [final]})
+            gecmis_kopya = pd.concat([gecmis_kopya, yeni], ignore_index=True)
         else:
             gelecek_tahminler.append(969)
     
@@ -390,7 +444,7 @@ with col_left:
     x_tahmin = np.arange(7, 14)
     
     ax.plot(x_gecmis, gecmis_7, 'steelblue', marker='o', linewidth=2, label='Geçmiş')
-    ax.plot(x_tahmin, gelecek_tahminler, '#2ecc71', marker='o', linewidth=2, label='Tahmin')
+    ax.plot(x_tahmin, gelecek_tahminler, '#2ecc71', marker='o', linewidth=2, label='Tahmin (Planlı)')
     ax.axvline(x=6.5, color='red', linestyle='--', alpha=0.5)
     ax.fill_between(x_tahmin, [t-150 for t in gelecek_tahminler],
                     [t+150 for t in gelecek_tahminler], alpha=0.15, color='green')
@@ -429,30 +483,42 @@ st.subheader("📋 7 Günlük Detaylı Tahmin Tablosu")
 tablo_data = []
 for i in range(7):
     gun = tahmin_tarihi_dt + timedelta(days=i)
-    gun_adi = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'][gun.dayofweek]
+    gun_adi = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'][gun.dayofweek]
+    
+    # Plan kontrol
+    plan_bilgi = "Yok"
+    if plan_veri is not None:
+        gp = plan_veri[plan_veri['Tarih_DT'] == gun]
+        if len(gp) > 0:
+            plan_bilgi = f"📋 {gp['Planlanan_Bobin'].sum():,}"
+    
     bakim = "🔧" if gun.dayofweek in [0, 5] else ""
     ariza_risk = "Yüksek" if gun.dayofweek in [0, 5] else ("Orta" if gun.dayofweek == 4 else "Düşük")
     
     tablo_data.append({
         'Tarih': gun.strftime('%d.%m.%Y'),
         'Gün': f"{gun_adi} {bakim}",
-        'Tahmini Bobin': f"{gelecek_tahminler[i]:,}",
+        'Tahmin': f"{gelecek_tahminler[i]:,}",
+        'Plan': plan_bilgi,
         'Min-Max': f"{gelecek_tahminler[i]-200:,} - {gelecek_tahminler[i]+200:,}",
         'Bakım': '🔧 Var' if gun.dayofweek in [0, 5] else '✅ Yok',
         'Arıza Riski': ariza_risk
     })
 
-tablo_df = pd.DataFrame(tablo_data)
-st.dataframe(tablo_df, use_container_width=True, hide_index=True)
+st.dataframe(pd.DataFrame(tablo_data), use_container_width=True, hide_index=True)
 
 st.markdown("---")
 
-# ============================================================
-# MODEL BİLGİSİ
-# ============================================================
-with st.expander("ℹ️ Model Bilgisi & Metrikler"):
+with st.expander("ℹ️ Model Bilgisi & Nasıl Çalışır?"):
     st.markdown("""
-    ### 🎯 Model Detayları
+    ### 🎯 Nasıl Çalışır?
+    
+    1. **Model** geçmiş 14+ günlük üretim verisine bakar
+    2. **Ham tahmin** üretir (MAE ~205 bobin)
+    3. **Plan yüklüyse** tahmini planın ±%25 bandına çeker
+    4. **Final tahmin** hem model hem plan bilgisini kullanır
+    
+    ### 📊 Model Detayları
     
     | Özellik | Değer |
     |---------|-------|
@@ -463,20 +529,9 @@ with st.expander("ℹ️ Model Bilgisi & Metrikler"):
     | **Test MAE** | 205 bobin |
     | **Test MAPE** | %25.1 |
     
-    ### 📊 Simülasyon Senaryosu
-    
-    - 🏭 2 üretim tesisi (İstanbul, Ankara)
-    - 🔧 9 ekstrüzyon hattı
-    - 📦 17 farklı ürün tipi
-    - 👷 10 operatör
-    - 📅 Pazartesi/Cumartesi planlı bakım
-    - ⚠️ Rastgele makine arızaları
-    
     ### ⚠️ Uyarı
-    
-    Bu demo **sentetik veri** ile eğitilmiştir. Gerçek üretim ortamında 
-    kullanılmadan önce gerçek veri ile yeniden eğitilmelidir.
+    Bu demo **sentetik veri** ile eğitilmiştir.
     """)
 
 st.markdown("---")
-st.caption("🏭 FactoryFlow-AI | XGBoost | © 2025 | Sentetik Veri Simülasyonu")
+st.caption("🏭 FactoryFlow-AI | XGBoost + Plan Entegrasyon | © 2025")
