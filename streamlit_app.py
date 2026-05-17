@@ -9,7 +9,20 @@ import warnings
 warnings.filterwarnings('ignore')
 
 BASE_DIR = Path(__file__).resolve().parent
-PROJECT_DIR = BASE_DIR.parent
+SEARCH_DIRS = [
+    BASE_DIR,
+    BASE_DIR.parent,
+    BASE_DIR / "prodtanly",
+]
+
+def find_project_file(file_name):
+    for folder in SEARCH_DIRS:
+        candidate = folder / file_name
+        if candidate.exists():
+            return candidate
+
+    searched = "\n".join(f"- {folder / file_name}" for folder in SEARCH_DIRS)
+    raise FileNotFoundError(f"{file_name} bulunamadı. Aranan yollar:\n{searched}")
 
 # ============================================================
 # SAYFA KONFİGÜRASYONU
@@ -25,11 +38,8 @@ st.set_page_config(
 # ============================================================
 @st.cache_resource
 def load_model():
-    model_path = PROJECT_DIR / "xgb_model.pkl"
-    features_path = PROJECT_DIR / "feature_list.pkl"
-    
-    if not model_path.exists() or not features_path.exists():
-        raise FileNotFoundError(f"Model dosyaları bulunamadı: {PROJECT_DIR}")
+    model_path = find_project_file("xgb_model.pkl")
+    features_path = find_project_file("feature_list.pkl")
     
     model = joblib.load(model_path)
     features = joblib.load(features_path)
@@ -38,12 +48,13 @@ def load_model():
 @st.cache_data
 def load_historical_data():
     """V4 üretim verisini yükle"""
-    data_path = PROJECT_DIR / "kablo_uretim_veriseti_v4.csv"
-    if data_path.exists():
+    try:
+        data_path = find_project_file("kablo_uretim_veriseti_v4.csv")
         df = pd.read_csv(data_path, sep=';')
         df['Tarih_DT'] = pd.to_datetime(df['Üretim Tarihi'], format='%d.%m.%Y')
         return df
-    return None
+    except FileNotFoundError:
+        return None
 
 try:
     model, feature_cols = load_model()
