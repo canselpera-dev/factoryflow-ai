@@ -9,7 +9,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 BASE_DIR = Path(__file__).resolve().parent
-PROJECT_DIR = BASE_DIR.parent
+PROJECT_DIR = BASE_DIR  # Çünkü streamlit_app.py zaten ana klasörde
 
 # ============================================================
 # SAYFA KONFİGÜRASYONU
@@ -293,7 +293,7 @@ with col_right:
     top_feature_names = top_features['Feature'].astype(str).tolist()
 
     ax2.barh(range(len(top_importance)), top_importance, color=colors, edgecolor='black')
-    ax2.set_yticks(range(len(top_importance)))
+    ax2.set_yticks(range(10))
     ax2.set_yticklabels(top_feature_names)
     ax2.set_xlabel('Önem Skoru')
     ax2.set_title('Model Feature Importance (Top 10)')
